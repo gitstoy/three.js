@@ -569,7 +569,7 @@ THREE.SEA3D.Animator.prototype.getTimeScale = function() {
 
 THREE.SEA3D.Animator.prototype.updateTimeScale = function() {
 
-	this.currentAnimationAction.setEffectiveTimeScale( this.timeScale * ( this.currentAnimation ? this.currentAnimation.timeScale : 1 ) );
+	this.mixer.timeScale = this.timeScale * ( this.currentAnimation ? this.currentAnimation.timeScale : 1 );
 
 };
 
@@ -579,8 +579,8 @@ THREE.SEA3D.Animator.prototype.play = function( name, crossfade, offset, weight 
 
 	if ( animation == this.currentAnimation ) {
 
-		if ( offset !== undefined || ! animation.loop ) this.currentAnimationAction.time = offset !== undefined ? offset : 
-			( this.currentAnimationAction.timeScale >= 0 ? 0 : this.currentAnimation.duration );
+		if ( offset !== undefined || ! animation.loop ) this.currentAnimationAction.time = offset !== undefined ? offset :
+			( this.mixer.timeScale >= 0 ? 0 : this.currentAnimation.duration );
 
 		this.currentAnimationAction.setEffectiveWeight( weight !== undefined ? weight : 1 );
 		this.currentAnimationAction.paused = false;
@@ -604,8 +604,8 @@ THREE.SEA3D.Animator.prototype.play = function( name, crossfade, offset, weight 
 
 		this.updateTimeScale();
 
-		if ( offset !== undefined || ! animation.loop ) this.currentAnimationAction.time = offset !== undefined ? offset : 
-			( this.currentAnimationAction.timeScale >= 0 ? 0 : this.currentAnimation.duration );
+		if ( offset !== undefined || ! animation.loop ) this.currentAnimationAction.time = offset !== undefined ? offset :
+			( this.mixer.timeScale >= 0 ? 0 : this.currentAnimation.duration );
 
 		this.currentAnimationAction.setEffectiveWeight( weight !== undefined ? weight : 1 );
 
@@ -928,9 +928,7 @@ THREE.SEA3D.SkinnedMesh = function( geometry, material, useVertexTexture ) {
 THREE.SEA3D.SkinnedMesh.prototype = Object.create( THREE.SkinnedMesh.prototype );
 THREE.SEA3D.SkinnedMesh.prototype.constructor = THREE.SEA3D.SkinnedMesh;
 
-Object.assign( THREE.SEA3D.SkinnedMesh.prototype, THREE.SEA3D.Object3D.prototype );
-
-Object.assign( THREE.SEA3D.SkinnedMesh.prototype, THREE.SEA3D.Animator.prototype );
+Object.assign( THREE.SEA3D.SkinnedMesh.prototype, THREE.SEA3D.Mesh.prototype, THREE.SEA3D.Animator.prototype );
 
 THREE.SEA3D.SkinnedMesh.prototype.boneByName = function( name ) {
 
@@ -975,9 +973,7 @@ THREE.SEA3D.VertexAnimationMesh = function( geometry, material ) {
 THREE.SEA3D.VertexAnimationMesh.prototype = Object.create( THREE.Mesh.prototype );
 THREE.SEA3D.VertexAnimationMesh.prototype.constructor = THREE.SEA3D.VertexAnimationMesh;
 
-Object.assign( THREE.SEA3D.VertexAnimationMesh.prototype, THREE.SEA3D.Object3D.prototype );
-
-Object.assign( THREE.SEA3D.VertexAnimationMesh.prototype, THREE.SEA3D.Animator.prototype );
+Object.assign( THREE.SEA3D.VertexAnimationMesh.prototype, THREE.SEA3D.Mesh.prototype, THREE.SEA3D.Animator.prototype );
 
 THREE.SEA3D.VertexAnimationMesh.prototype.copy = function( source ) {
 
@@ -1539,8 +1535,8 @@ THREE.SEA3D.prototype.readGeometryBuffer = function( sea ) {
 
 	if ( sea.joint ) {
 
-		geo.addAttribute( 'skinIndex', new THREE.Float32Attribute( sea.joint, sea.jointPerVertex ) );
-		geo.addAttribute( 'skinWeight', new THREE.Float32Attribute( sea.weight, sea.jointPerVertex ) );
+		geo.addAttribute( 'skinIndex', new THREE.Float32BufferAttribute( sea.joint, sea.jointPerVertex ) );
+		geo.addAttribute( 'skinWeight', new THREE.Float32BufferAttribute( sea.weight, sea.jointPerVertex ) );
 
 	}
 
@@ -1588,7 +1584,7 @@ THREE.SEA3D.prototype.readLine = function( sea ) {
 	if ( sea.closed )
 		sea.vertex.push( sea.vertex[ 0 ], sea.vertex[ 1 ], sea.vertex[ 2 ] );
 
-	geo.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array( sea.vertex ), 3 ) );
+	geo.addAttribute( 'position', new THREE.Float32BufferAttribute( sea.vertex, 3 ) );
 
 	var line = new THREE.Line( geo, new THREE.LineBasicMaterial( { color: THREE.SEA3D.HELPER_COLOR, linewidth: 3 } ) );
 	line.name = sea.name;
@@ -1627,30 +1623,30 @@ THREE.SEA3D.prototype.readContainer3D = function( sea ) {
 
 THREE.SEA3D.prototype.readSprite = function( sea ) {
 
-	var material;
+	var mat;
 
 	if ( sea.material ) {
 
 		if ( ! sea.material.tag.sprite ) {
 
-			material = sea.material.tag.sprite = new THREE.SpriteMaterial();
+			mat = sea.material.tag.sprite = new THREE.SpriteMaterial();
 
-			this.setBlending( material, sea.blendMode );
+			this.setBlending( mat, sea.blendMode );
 
-			material.map = sea.material.tag.map;
-			material.map.flipY = true;
+			mat.map = sea.material.tag.map;
+			mat.map.flipY = true;
 
-			material.color.set( sea.material.tag.color );
-			material.opacity = sea.material.tag.opacity;
-			material.blending = sea.material.tag.blending;
-			material.fog = sea.material.receiveFog;
+			mat.color.set( sea.material.tag.color );
+			mat.opacity = sea.material.tag.opacity;
+			mat.blending = sea.material.tag.blending;
+			mat.fog = sea.material.receiveFog;
 
 		}
-		else material = sea.material.tag.sprite;
+		else mat = sea.material.tag.sprite;
 
 	}
 
-	var sprite = new THREE.Sprite( material );
+	var sprite = new THREE.Sprite( mat );
 	sprite.name = sea.name;
 
 	this.domain.sprites = this.sprites = this.sprites || [];
@@ -2193,7 +2189,7 @@ THREE.SEA3D.prototype.createMaterial = function( sea ) {
 
 };
 
-THREE.SEA3D.prototype.setBlending = function( material, blendMode ) {
+THREE.SEA3D.prototype.setBlending = function( mat, blendMode ) {
 
 	if ( blendMode == "normal" ) return;
 
@@ -2491,12 +2487,12 @@ THREE.SEA3D.prototype.readMorpher = function( sea ) {
 
 		var node = sea.node[ i ];
 
-		attribs.position[ i ] = new THREE.Float32Attribute( new Float32Array( node.vertex ), 3 );
+		attribs.position[ i ] = new THREE.Float32BufferAttribute( node.vertex, 3 );
 
 		if ( node.normal ) {
 
 			attribs.normal = attribs.normal || [];
-			attribs.normal[ i ] = new THREE.Float32Attribute( new Float32Array( node.normal ), 3 );
+			attribs.normal[ i ] = new THREE.Float32BufferAttribute( node.normal, 3 );
 
 		}
 
@@ -2594,12 +2590,12 @@ THREE.SEA3D.prototype.readVertexAnimation = function( sea ) {
 
 		var frame = sea.frame[ i ];
 
-		attribs.position[ i ] = new THREE.Float32Attribute( new Float32Array( frame.vertex ), 3 );
+		attribs.position[ i ] = new THREE.Float32BufferAttribute( frame.vertex, 3 );
 
 		if ( frame.normal ) {
 
 			attribs.normal = attribs.normal || [];
-			attribs.normal[ i ] = new THREE.Float32Attribute( new Float32Array( frame.normal ), 3 );
+			attribs.normal[ i ] = new THREE.Float32BufferAttribute( frame.normal, 3 );
 
 		}
 
